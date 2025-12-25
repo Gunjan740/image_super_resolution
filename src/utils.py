@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from PIL import Image
 
 def crop_to_multiple(img, multiple=8):
@@ -16,3 +17,5 @@ def make_lr(hr_img, scale=4):
         resample=Image.BICUBIC
     )
     return lr, hr_img
+=======
+>>>>>>> 21b03a6 (Removed unnecessary code from all the files)

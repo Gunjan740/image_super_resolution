@@ -29,8 +29,6 @@ ENV/
 .env
 
 # Data and Models
-data/input/*
-data/output/*
 !data/input/.gitkeep
 !data/output/.gitkeep
 !data/sample/

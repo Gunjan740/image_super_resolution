@@ -61,3 +61,4 @@ Thumbs.db
 *.out
 *.err
 slurm-*.out
+data/

@@ -28,37 +28,52 @@ ENV/
 # Environment variables
 .env
 
+# ------------------
 # Data and Models
+# ------------------
+data/*
 !data/input/.gitkeep
 !data/output/.gitkeep
-!data/sample/
+!data/sample/.gitkeep
+
 models/*
 !models/.gitkeep
 
+# ------------------
 # Results and Logs
+# ------------------
 results/*
 !results/.gitkeep
+
 logs/*
 !logs/.gitkeep
+
 *.log
 
+# ------------------
 # Jupyter Notebook
+# ------------------
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 
+# ------------------
 # IDE
+# ------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
+# ------------------
 # OS
+# ------------------
 .DS_Store
 Thumbs.db
 
+# ------------------
 # Cluster specific
+# ------------------
 *.out
 *.err
 slurm-*.out
-data/

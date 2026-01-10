@@ -26,6 +26,22 @@ module load devel/cuda/11.8
 source ~/image_super_resolution/venv/bin/activate
 
 # -------------------------
+# Load environment variables (HF_TOKEN, etc.)
+# -------------------------
+set -a
+source ~/image_super_resolution/.env
+set +a
+
+
+# -------------------------
+# Hugging Face cache (persistent)
+# -------------------------
+export HF_HOME=$SCRATCH/hf_cache
+export HF_HUB_CACHE=$SCRATCH/hf_cache/hub
+export TRANSFORMERS_CACHE=$SCRATCH/hf_cache/transformers
+export DIFFUSERS_CACHE=$SCRATCH/hf_cache/diffusers
+
+# -------------------------
 # Go to project root
 # -------------------------
 cd ~/image_super_resolution

@@ -20,6 +20,19 @@ load_dotenv()
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.manual_seed(0)
 
+# -------------------------
+# 🔑 STEP 3: Checkpoint setup
+# -------------------------
+os.makedirs("checkpoints", exist_ok=True)
+save_every = 200
+max_steps = 1000
+# -------------------------
+# 🔑 STEP 4: Loss logging
+# -------------------------
+os.makedirs("logs", exist_ok=True)
+loss_log = open("logs/train_loss.csv", "w")
+loss_log.write("step,loss\n")
+
 
 # --------------------------------------------------
 # Load ControlNet + Stable Diffusion (FP32 weights!)
@@ -101,9 +114,10 @@ with torch.no_grad():
 # --------------------------------------------------
 # Training loop (SKELETON)
 # --------------------------------------------------
+
 for step, (lr_img, hr_img) in enumerate(dataloader):
 
-    if step >= 2:  # short validation run
+    if step >= max_steps:  # short run
         break
 
     lr_img = lr_img.to(device, non_blocking=True)
@@ -186,11 +200,30 @@ for step, (lr_img, hr_img) in enumerate(dataloader):
         loss.backward()
         optimizer.step()
 
+    # -----------------------------
+    # 🔑 STEP 3: Save checkpoint
+    # -----------------------------
+    if step % save_every == 0 and step > 0:
+        torch.save(
+            pipe.controlnet.state_dict(),
+            f"checkpoints/controlnet_step_{step}.pt"
+        )
+
+    # -----------------------------
+    # 🔑 STEP 4: Log loss
+    # -----------------------------
+    loss_log.write(f"{step},{loss.item()}\n")
+    loss_log.flush()
+
     print(
         f"Step {step} | Loss: {loss.item():.6f} | "
         f"latents: {tuple(noisy_latents.shape)} | cond: {tuple(cond.shape)}",
         flush=True,
     )
 
-print("✅ Training loop skeleton completed")
+# -------------------------
+# 🔑 STEP 4: Close loss log
+# -------------------------
+loss_log.close()
 
+print("✅ Training loop skeleton completed")

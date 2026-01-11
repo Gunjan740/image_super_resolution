@@ -20,22 +20,22 @@ load_dotenv()
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.manual_seed(0)
 
-# -------------------------
-# 🔑 STEP 3: Checkpoint setup
-# -------------------------
+# --------------------------------------------------
+# Checkpoint & logging setup
+# --------------------------------------------------
 os.makedirs("checkpoints", exist_ok=True)
-save_every = 200
-max_steps = 1000
-# -------------------------
-# 🔑 STEP 4: Loss logging
-# -------------------------
 os.makedirs("logs", exist_ok=True)
+
+save_every = 200
+max_steps = 5000000
+num_epochs = 20
+
 loss_log = open("logs/train_loss.csv", "w")
-loss_log.write("step,loss\n")
+loss_log.write("global_step,loss\n")
 
 
 # --------------------------------------------------
-# Load ControlNet + Stable Diffusion (FP32 weights!)
+# Load ControlNet + Stable Diffusion (FP32 weights)
 # --------------------------------------------------
 controlnet = ControlNetModel.from_pretrained(
     "lllyasviel/control_v11f1e_sd15_tile"
@@ -112,118 +112,129 @@ with torch.no_grad():
 
 
 # --------------------------------------------------
-# Training loop (SKELETON)
+# Training loop (epoch + global_step)
 # --------------------------------------------------
+global_step = 0
 
-for step, (lr_img, hr_img) in enumerate(dataloader):
+for epoch in range(num_epochs):
+    print(f"\n===== Epoch {epoch + 1}/{num_epochs} =====", flush=True)
 
-    if step >= max_steps:  # short run
+    for lr_img, hr_img in dataloader:
+
+        if global_step >= max_steps:
+            break
+
+        lr_img = lr_img.to(device, non_blocking=True)
+        hr_img = hr_img.to(device, non_blocking=True)
+
+        # -----------------------------
+        # Encode HR → latent
+        # -----------------------------
+        with torch.no_grad():
+            latents = pipe.vae.encode(hr_img).latent_dist.sample()
+            latents = latents * pipe.vae.config.scaling_factor
+
+        # -----------------------------
+        # Noise + timestep
+        # -----------------------------
+        noise = torch.randn_like(latents)
+        timesteps = torch.randint(
+            0,
+            noise_scheduler.config.num_train_timesteps,
+            (latents.shape[0],),
+            device=device,
+        ).long()
+
+        noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+
+        # -----------------------------
+        # ControlNet conditioning (image space)
+        # -----------------------------
+        h_lat, w_lat = noisy_latents.shape[-2:]
+        cond = F.interpolate(
+            lr_img,
+            size=(h_lat * 8, w_lat * 8),
+            mode="bilinear",
+            align_corners=False,
+        ).clamp(-1.0, 1.0)
+
+        # -----------------------------
+        # Forward + loss (AMP)
+        # -----------------------------
+        if device == "cuda":
+            ctx = autocast("cuda")
+        else:
+            from contextlib import nullcontext
+            ctx = nullcontext()
+
+        with ctx:
+            controlnet_out = pipe.controlnet(
+                sample=noisy_latents,
+                timestep=timesteps,
+                encoder_hidden_states=encoder_hidden_states,
+                controlnet_cond=cond,
+                return_dict=True,
+            )
+
+            model_pred = pipe.unet(
+                sample=noisy_latents,
+                timestep=timesteps,
+                encoder_hidden_states=encoder_hidden_states,
+                down_block_additional_residuals=controlnet_out.down_block_res_samples,
+                mid_block_additional_residual=controlnet_out.mid_block_res_sample,
+                return_dict=True,
+            ).sample
+
+            loss = F.mse_loss(model_pred, noise)
+
+        if torch.isnan(loss) or torch.isinf(loss):
+            print("❌ NaN/Inf loss detected, skipping step", flush=True)
+            continue
+
+        # -----------------------------
+        # Backprop (AMP-safe)
+        # -----------------------------
+        optimizer.zero_grad(set_to_none=True)
+
+        if device == "cuda":
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
+
+        # -----------------------------
+        # Save checkpoint
+        # -----------------------------
+        if global_step % save_every == 0 and global_step > 0:
+            torch.save(
+                pipe.controlnet.state_dict(),
+                f"checkpoints/controlnet_step_{global_step}.pt"
+            )
+
+        # -----------------------------
+        # Log loss
+        # -----------------------------
+        loss_log.write(f"{global_step},{loss.item()}\n")
+        loss_log.flush()
+
+        print(
+            f"Epoch {epoch + 1} | Step {global_step} | "
+            f"Loss: {loss.item():.6f} | "
+            f"latents: {tuple(noisy_latents.shape)} | "
+            f"cond: {tuple(cond.shape)}",
+            flush=True,
+        )
+
+        global_step += 1
+
+    if global_step >= max_steps:
         break
 
-    lr_img = lr_img.to(device, non_blocking=True)
-    hr_img = hr_img.to(device, non_blocking=True)
 
-    # -----------------------------
-    # Encode HR → latent
-    # -----------------------------
-    with torch.no_grad():
-        latents = pipe.vae.encode(hr_img).latent_dist.sample()
-        latents = latents * pipe.vae.config.scaling_factor
-
-    # -----------------------------
-    # Noise + timestep
-    # -----------------------------
-    noise = torch.randn_like(latents)
-    timesteps = torch.randint(
-        0,
-        noise_scheduler.config.num_train_timesteps,
-        (latents.shape[0],),
-        device=device,
-    ).long()
-
-    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-
-    # -----------------------------
-    # ControlNet conditioning (image space)
-    # -----------------------------
-    h_lat, w_lat = noisy_latents.shape[-2:]
-    cond = F.interpolate(
-        lr_img,
-        size=(h_lat * 8, w_lat * 8),
-        mode="bilinear",
-        align_corners=False,
-    ).clamp(-1.0, 1.0)
-
-    # -----------------------------
-    # Forward + loss (AMP)
-    # -----------------------------
-    if device == "cuda":
-        ctx = autocast("cuda")
-    else:
-        from contextlib import nullcontext
-        ctx = nullcontext()
-
-    with ctx:
-        controlnet_out = pipe.controlnet(
-            sample=noisy_latents,
-            timestep=timesteps,
-            encoder_hidden_states=encoder_hidden_states,
-            controlnet_cond=cond,
-            return_dict=True,
-        )
-
-        model_pred = pipe.unet(
-            sample=noisy_latents,
-            timestep=timesteps,
-            encoder_hidden_states=encoder_hidden_states,
-            down_block_additional_residuals=controlnet_out.down_block_res_samples,
-            mid_block_additional_residual=controlnet_out.mid_block_res_sample,
-            return_dict=True,
-        ).sample
-
-        loss = F.mse_loss(model_pred, noise)
-
-    if torch.isnan(loss) or torch.isinf(loss):
-        print("❌ NaN/Inf loss detected, skipping step", flush=True)
-        continue
-
-    # -----------------------------
-    # Backprop (AMP-safe)
-    # -----------------------------
-    optimizer.zero_grad(set_to_none=True)
-
-    if device == "cuda":
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-    else:
-        loss.backward()
-        optimizer.step()
-
-    # -----------------------------
-    # 🔑 STEP 3: Save checkpoint
-    # -----------------------------
-    if step % save_every == 0 and step > 0:
-        torch.save(
-            pipe.controlnet.state_dict(),
-            f"checkpoints/controlnet_step_{step}.pt"
-        )
-
-    # -----------------------------
-    # 🔑 STEP 4: Log loss
-    # -----------------------------
-    loss_log.write(f"{step},{loss.item()}\n")
-    loss_log.flush()
-
-    print(
-        f"Step {step} | Loss: {loss.item():.6f} | "
-        f"latents: {tuple(noisy_latents.shape)} | cond: {tuple(cond.shape)}",
-        flush=True,
-    )
-
-# -------------------------
-# 🔑 STEP 4: Close loss log
-# -------------------------
+# --------------------------------------------------
+# Cleanup
+# --------------------------------------------------
 loss_log.close()
-
-print("✅ Training loop skeleton completed")
+print("✅ Training loop completed")

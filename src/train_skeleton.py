@@ -27,11 +27,10 @@ os.makedirs("checkpoints", exist_ok=True)
 os.makedirs("logs", exist_ok=True)
 
 save_every = 200
-max_steps = 5000000
+max_steps = 5_000_000
 num_epochs = 20
 
-loss_log = open("logs/train_loss.csv", "w")
-loss_log.write("global_step,loss\n")
+loss_log_path = "logs/train_loss.csv"
 
 
 # --------------------------------------------------
@@ -86,7 +85,7 @@ noise_scheduler = DDPMScheduler.from_pretrained(
 
 
 # --------------------------------------------------
-# Optimizer (ONLY ControlNet)
+# Optimizer & AMP
 # --------------------------------------------------
 optimizer = torch.optim.AdamW(
     pipe.controlnet.parameters(),
@@ -112,11 +111,43 @@ with torch.no_grad():
 
 
 # --------------------------------------------------
+# 🔁 Resume from checkpoint if available
+# --------------------------------------------------
+latest_ckpt = "checkpoints/latest.pt"
+global_step = 0
+start_epoch = 0
+
+if os.path.exists(latest_ckpt):
+    print(f"🔄 Resuming from {latest_ckpt}", flush=True)
+    ckpt = torch.load(latest_ckpt, map_location=device)
+
+    pipe.controlnet.load_state_dict(ckpt["controlnet"])
+    optimizer.load_state_dict(ckpt["optimizer"])
+    if scaler is not None and "scaler" in ckpt:
+        scaler.load_state_dict(ckpt["scaler"])
+
+    global_step = ckpt["global_step"]
+    start_epoch = ckpt["epoch"]
+
+    print(
+        f"✅ Resumed at epoch {start_epoch}, global step {global_step}",
+        flush=True,
+    )
+
+# --------------------------------------------------
+# Loss logging (append-safe)
+# --------------------------------------------------
+if not os.path.exists(loss_log_path):
+    loss_log = open(loss_log_path, "w")
+    loss_log.write("global_step,loss\n")
+else:
+    loss_log = open(loss_log_path, "a")
+
+
+# --------------------------------------------------
 # Training loop (epoch + global_step)
 # --------------------------------------------------
-global_step = 0
-
-for epoch in range(num_epochs):
+for epoch in range(start_epoch, num_epochs):
     print(f"\n===== Epoch {epoch + 1}/{num_epochs} =====", flush=True)
 
     for lr_img, hr_img in dataloader:
@@ -148,7 +179,7 @@ for epoch in range(num_epochs):
         noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
         # -----------------------------
-        # ControlNet conditioning (image space)
+        # ControlNet conditioning
         # -----------------------------
         h_lat, w_lat = noisy_latents.shape[-2:]
         cond = F.interpolate(
@@ -159,13 +190,9 @@ for epoch in range(num_epochs):
         ).clamp(-1.0, 1.0)
 
         # -----------------------------
-        # Forward + loss (AMP)
+        # Forward + loss
         # -----------------------------
-        if device == "cuda":
-            ctx = autocast("cuda")
-        else:
-            from contextlib import nullcontext
-            ctx = nullcontext()
+        ctx = autocast("cuda") if device == "cuda" else torch.no_grad()
 
         with ctx:
             controlnet_out = pipe.controlnet(
@@ -192,7 +219,7 @@ for epoch in range(num_epochs):
             continue
 
         # -----------------------------
-        # Backprop (AMP-safe)
+        # Backprop
         # -----------------------------
         optimizer.zero_grad(set_to_none=True)
 
@@ -205,12 +232,21 @@ for epoch in range(num_epochs):
             optimizer.step()
 
         # -----------------------------
-        # Save checkpoint
+        # Save checkpoints
         # -----------------------------
         if global_step % save_every == 0 and global_step > 0:
+            ckpt = {
+                "epoch": epoch,
+                "global_step": global_step,
+                "controlnet": pipe.controlnet.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "scaler": scaler.state_dict() if scaler is not None else None,
+            }
+
+            torch.save(ckpt, "checkpoints/latest.pt")
             torch.save(
-                pipe.controlnet.state_dict(),
-                f"checkpoints/controlnet_step_{global_step}.pt"
+                ckpt,
+                f"checkpoints/controlnet_step_{global_step}.pt",
             )
 
         # -----------------------------

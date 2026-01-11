@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=01:30:00
+#SBATCH --time=00:30:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 
@@ -25,12 +25,8 @@ module load devel/cuda/11.8
 # -------------------------
 source ~/image_super_resolution/venv/bin/activate
 
-# -------------------------
-# Load environment variables (HF_TOKEN, etc.)
-# -------------------------
-set -a
-source ~/image_super_resolution/.env
-set +a
+# Hugging Face token (safe, local-only)
+export HF_TOKEN=$(cat ~/.hf_token)
 
 
 # -------------------------

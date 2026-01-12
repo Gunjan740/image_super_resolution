@@ -5,8 +5,10 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
+import lpips
+import torchvision.utils as vutils
 
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
 from dataset import SRDataset
 
 # --------------------------------------------------
@@ -20,6 +22,7 @@ OUT_DIR = "results/div2k_val_epoch20"
 
 os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(f"{OUT_DIR}/images", exist_ok=True)
+os.makedirs(f"{OUT_DIR}/grids", exist_ok=True)
 
 # --------------------------------------------------
 # Load model
@@ -39,12 +42,17 @@ pipe.unet.eval()
 pipe.controlnet.eval()
 pipe.text_encoder.eval()
 
-
 ckpt = torch.load(CKPT_PATH, map_location=device)
 pipe.controlnet.load_state_dict(ckpt["controlnet"])
 
 # --------------------------------------------------
-# Dataset (unchanged)
+# LPIPS
+# --------------------------------------------------
+lpips_fn = lpips.LPIPS(net="alex").to(device)
+lpips_fn.eval()
+
+# --------------------------------------------------
+# Dataset
 # --------------------------------------------------
 dataset = SRDataset(
     hr_dir=HR_DIR,
@@ -79,19 +87,24 @@ def bicubic_upsample(lr_tensor, size):
     bicubic = lr_img.resize(size, Image.BICUBIC)
     return np.array(bicubic).astype(np.float32)
 
+def img_to_tensor_01(img):
+    if img.max() > 1.0:
+        img = img / 255.0
+    t = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0)
+    return t.to(device).float() * 2 - 1  # → [-1,1]
+
 # --------------------------------------------------
-# Evaluation loop
+# Evaluation
 # --------------------------------------------------
 psnr_list, ssim_list = [], []
 bic_psnr_list, bic_ssim_list = [], []
+lpips_sr_list, lpips_bic_list = [], []
 
 for i, (lr, hr) in enumerate(loader):
     lr = lr.to(device)
     hr = hr.to(device)
 
-    # -----------------------------
     # ControlNet conditioning (same as training)
-    # -----------------------------
     cond = torch.nn.functional.interpolate(
         lr,
         size=hr.shape[-2:],
@@ -109,20 +122,13 @@ for i, (lr, hr) in enumerate(loader):
 
     sr_img = out.images[0]
 
-    # -----------------------------
-    # Prepare images for metrics
-    # -----------------------------
+    # Prepare images
     sr = np.array(sr_img).astype(np.float32)
     hr_np = tensor_to_img_01(hr)
-
-    # Bicubic baseline
-    bicubic = bicubic_upsample(
-        lr,
-        size=(hr.shape[-1], hr.shape[-2])
-    )
+    bicubic = bicubic_upsample(lr, size=(hr.shape[-1], hr.shape[-2]))
 
     # -----------------------------
-    # Y channel + border crop
+    # PSNR / SSIM (Y channel)
     # -----------------------------
     crop = 4
 
@@ -130,9 +136,6 @@ for i, (lr, hr) in enumerate(loader):
     hr_y = rgb2y(hr_np)[crop:-crop, crop:-crop]
     bic_y = rgb2y(bicubic)[crop:-crop, crop:-crop]
 
-    # -----------------------------
-    # Metrics
-    # -----------------------------
     psnr = peak_signal_noise_ratio(hr_y, sr_y, data_range=1.0)
     ssim = structural_similarity(hr_y, sr_y, data_range=1.0)
 
@@ -144,23 +147,56 @@ for i, (lr, hr) in enumerate(loader):
     bic_psnr_list.append(bic_psnr)
     bic_ssim_list.append(bic_ssim)
 
-    # Save a few images
-    if i < 10:
-        sr_img.save(f"{OUT_DIR}/images/{i:04d}_SR.png")
+    # -----------------------------
+    # LPIPS
+    # -----------------------------
+    with torch.no_grad():
+        sr_t = img_to_tensor_01(sr)
+        hr_t = img_to_tensor_01(hr_np)
+        bic_t = img_to_tensor_01(bicubic)
+
+        lpips_sr = lpips_fn(sr_t, hr_t).item()
+        lpips_bic = lpips_fn(bic_t, hr_t).item()
+
+    lpips_sr_list.append(lpips_sr)
+    lpips_bic_list.append(lpips_bic)
+
+    # -----------------------------
+    # Save grid: LR | Bicubic | SR | HR
+    # -----------------------------
+    lr_up = bicubic_upsample(lr, size=(hr.shape[-1], hr.shape[-2]))
+
+    grid = torch.cat([
+        img_to_tensor_01(lr_up),
+        img_to_tensor_01(bicubic),
+        img_to_tensor_01(sr),
+        img_to_tensor_01(hr_np),
+    ], dim=0)
+
+    vutils.save_image(
+        (grid + 1) / 2,
+        f"{OUT_DIR}/grids/{i:04d}_grid.png",
+        nrow=4,
+    )
 
     print(
         f"[{i}] "
-        f"SR PSNR: {psnr:.2f}, SSIM: {ssim:.4f} | "
-        f"Bicubic PSNR: {bic_psnr:.2f}, SSIM: {bic_ssim:.4f}"
+        f"SR PSNR: {psnr:.2f}, SSIM: {ssim:.4f}, LPIPS: {lpips_sr:.4f} | "
+        f"Bicubic PSNR: {bic_psnr:.2f}, SSIM: {bic_ssim:.4f}, LPIPS: {lpips_bic:.4f}"
     )
 
 # --------------------------------------------------
 # Report
 # --------------------------------------------------
 with open(f"{OUT_DIR}/avg_metrics.txt", "w") as f:
-    f.write(f"ControlNet PSNR: {np.mean(psnr_list):.2f}\n")
-    f.write(f"ControlNet SSIM: {np.mean(ssim_list):.4f}\n\n")
-    f.write(f"Bicubic PSNR: {np.mean(bic_psnr_list):.2f}\n")
-    f.write(f"Bicubic SSIM: {np.mean(bic_ssim_list):.4f}\n")
+    f.write("=== ControlNet SR ===\n")
+    f.write(f"PSNR:  {np.mean(psnr_list):.2f}\n")
+    f.write(f"SSIM:  {np.mean(ssim_list):.4f}\n")
+    f.write(f"LPIPS: {np.mean(lpips_sr_list):.4f}\n\n")
+
+    f.write("=== Bicubic ===\n")
+    f.write(f"PSNR:  {np.mean(bic_psnr_list):.2f}\n")
+    f.write(f"SSIM:  {np.mean(bic_ssim_list):.4f}\n")
+    f.write(f"LPIPS: {np.mean(lpips_bic_list):.4f}\n")
 
 print("✅ Evaluation complete")

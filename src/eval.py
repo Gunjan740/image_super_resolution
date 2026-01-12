@@ -14,7 +14,7 @@ from dataset import SRDataset
 # --------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-HR_DIR = os.path.expanduser("~/datasets/DIV2K/DIV2K_valid_HR")
+HR_DIR = os.path.expanduser("~/datasets/div2k_sample/DIV2K_valid_HR_10")
 CKPT_PATH = "checkpoints/latest.pt"
 OUT_DIR = "results/div2k_val_epoch20"
 
@@ -34,7 +34,11 @@ pipe = StableDiffusionControlNetPipeline.from_pretrained(
 )
 
 pipe.to(device)
-pipe.eval()
+pipe.vae.eval()
+pipe.unet.eval()
+pipe.controlnet.eval()
+pipe.text_encoder.eval()
+
 
 ckpt = torch.load(CKPT_PATH, map_location=device)
 pipe.controlnet.load_state_dict(ckpt["controlnet"])

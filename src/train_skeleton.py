@@ -28,7 +28,7 @@ os.makedirs("logs", exist_ok=True)
 
 save_every = 200
 max_steps = 5_000_000
-num_epochs = 20
+num_epochs = 200
 
 loss_log_path = "logs/train_loss.csv"
 

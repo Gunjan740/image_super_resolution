@@ -62,7 +62,7 @@ pipe.controlnet.train()
 # Dataset & DataLoader
 # --------------------------------------------------
 dataset = SRDataset(
-    hr_dir=os.path.expanduser("~/datasets/DIV2K/DIV2K_train_HR"),
+    hr_dir=os.path.expanduser("~/datasets/DF2K/DF2K_HR"),
     scale=4,
 )
 

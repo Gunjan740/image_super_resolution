@@ -70,7 +70,7 @@ dataloader = DataLoader(
     dataset,
     batch_size=1,
     shuffle=True,
-    num_workers=0,
+    num_workers=2,
     pin_memory=(device == "cuda"),
 )
 

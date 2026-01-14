@@ -27,7 +27,8 @@ os.makedirs("checkpoints", exist_ok=True)
 os.makedirs("logs", exist_ok=True)
 
 save_every = 200
-max_steps = 50_000_00
+max_steps = 5_000_000
+num_epochs = 200
 
 loss_log_path = "logs/train_loss.csv"
 
@@ -114,6 +115,7 @@ with torch.no_grad():
 # --------------------------------------------------
 latest_ckpt = "checkpoints/latest.pt"
 global_step = 0
+start_epoch = 0
 
 if os.path.exists(latest_ckpt):
     print(f"🔄 Resuming from {latest_ckpt}", flush=True)
@@ -125,9 +127,10 @@ if os.path.exists(latest_ckpt):
         scaler.load_state_dict(ckpt["scaler"])
 
     global_step = ckpt["global_step"]
+    start_epoch = ckpt["epoch"]
 
     print(
-        f"✅ Resumed at global step {global_step}",
+        f"✅ Resumed at epoch {start_epoch}, global step {global_step}",
         flush=True,
     )
 
@@ -142,9 +145,10 @@ else:
 
 
 # --------------------------------------------------
-# Training loop (step-based, no epochs)
+# Training loop (epoch + global_step)
 # --------------------------------------------------
-while global_step < max_steps:
+for epoch in range(start_epoch, num_epochs):
+    print(f"\n===== Epoch {epoch + 1}/{num_epochs} =====", flush=True)
 
     for lr_img, hr_img in dataloader:
 
@@ -232,6 +236,7 @@ while global_step < max_steps:
         # -----------------------------
         if global_step % save_every == 0 and global_step > 0:
             ckpt = {
+                "epoch": epoch,
                 "global_step": global_step,
                 "controlnet": pipe.controlnet.state_dict(),
                 "optimizer": optimizer.state_dict(),
@@ -251,7 +256,7 @@ while global_step < max_steps:
         loss_log.flush()
 
         print(
-            f"Step {global_step} | "
+            f"Epoch {epoch + 1} | Step {global_step} | "
             f"Loss: {loss.item():.6f} | "
             f"latents: {tuple(noisy_latents.shape)} | "
             f"cond: {tuple(cond.shape)}",
@@ -259,6 +264,9 @@ while global_step < max_steps:
         )
 
         global_step += 1
+
+    if global_step >= max_steps:
+        break
 
 
 # --------------------------------------------------

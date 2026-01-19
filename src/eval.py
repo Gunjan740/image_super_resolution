@@ -9,16 +9,17 @@ import lpips
 import torchvision.utils as vutils
 
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
-from dataset import SRDataset
+from dataset_precomputed import SRDatasetPrecomputed
+
 
 # --------------------------------------------------
 # Config
 # --------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-HR_DIR = os.path.expanduser("~/datasets/div2k_sample/DIV2K_valid_HR_10")
+
 CKPT_PATH = "checkpoints/eval_latest.pt"
-OUT_DIR = "results/div2k_val_epoch20"
+OUT_DIR = "results/DIV2K_valid_HR_1024"
 
 os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(f"{OUT_DIR}/images", exist_ok=True)
@@ -54,9 +55,9 @@ lpips_fn.eval()
 # --------------------------------------------------
 # Dataset
 # --------------------------------------------------
-dataset = SRDataset(
-    hr_dir=HR_DIR,
-    scale=4,
+dataset = SRDatasetPrecomputed(
+    hr_dir="~/datasets/test_data/DIV2K_valid_HR_1024",
+    lr_dir="~/datasets/test_data/DIV2K_valid_LR_x4"
 )
 
 loader = DataLoader(dataset, batch_size=1, shuffle=False)
@@ -117,7 +118,7 @@ for i, (lr, hr) in enumerate(loader):
         out = pipe(
             prompt="",
             image=cond,
-            num_inference_steps=30,
+            num_inference_steps=40,
             generator=torch.manual_seed(0),
         )
 
@@ -212,4 +213,4 @@ with open(f"{OUT_DIR}/avg_metrics.txt", "w") as f:
     f.write(f"SSIM:  {np.mean(bic_ssim_list):.4f}\n")
     f.write(f"LPIPS: {np.mean(lpips_bic_list):.4f}\n")
 
-print("✅ Evaluation complete")
+print("Evaluation complete")

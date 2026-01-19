@@ -6,7 +6,7 @@ from torchvision import transforms
 
 class SRDatasetPrecomputed(Dataset):
     """
-    Dataset for evaluation with precomputed HR and LR images.
+    Dataset  with precomputed HR and LR images.
 
     Assumptions:
     - HR images are already resized to 1024x1024

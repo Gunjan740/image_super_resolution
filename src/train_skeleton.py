@@ -26,7 +26,7 @@ torch.manual_seed(0)
 os.makedirs("checkpoints", exist_ok=True)
 os.makedirs("logs", exist_ok=True)
 
-save_every = 200
+save_every = 5000
 max_steps = 50_000_00
 
 loss_log_path = "logs/train_loss.csv"

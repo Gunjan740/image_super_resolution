@@ -17,7 +17,7 @@ from dataset import SRDataset
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 HR_DIR = os.path.expanduser("~/datasets/div2k_sample/DIV2K_valid_HR_10")
-CKPT_PATH = "checkpoints/latest.pt"
+CKPT_PATH = "checkpoints/eval_latest.pt"
 OUT_DIR = "results/div2k_val_epoch20"
 
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -68,13 +68,14 @@ def tensor_to_img_01(t):
     t = (t.clamp(-1, 1) + 1) / 2
     return t.squeeze(0).permute(1, 2, 0).cpu().numpy()
 
-def rgb2y(img):
+# OPTION B: Y channel for inputs in [0,1]
+def rgb2y_01(img01):
+    # BT.601 luma (common), input [0,1] -> output [0,1]
     return (
-        0.257 * img[..., 0]
-        + 0.504 * img[..., 1]
-        + 0.098 * img[..., 2]
-        + 16.0
-    ) / 255.0
+        0.299 * img01[..., 0]
+        + 0.587 * img01[..., 1]
+        + 0.114 * img01[..., 2]
+    )
 
 def bicubic_upsample(lr_tensor, size):
     lr_01 = (lr_tensor + 1) / 2
@@ -123,18 +124,30 @@ for i, (lr, hr) in enumerate(loader):
     sr_img = out.images[0]
 
     # Prepare images
-    sr = np.array(sr_img).astype(np.float32)
-    hr_np = tensor_to_img_01(hr)
-    bicubic = bicubic_upsample(lr, size=(hr.shape[-1], hr.shape[-2]))
+    sr = np.array(sr_img).astype(np.float32)               # 0..255
+    hr_np = tensor_to_img_01(hr).astype(np.float32)        # 0..1
+    bicubic = bicubic_upsample(lr, size=(hr.shape[-1], hr.shape[-2]))  # 0..255
+
+    # ---- SANITY CHECK (only once) ----
+    if i == 0:
+        sr01 = sr / 255.0
+        bic01 = bicubic / 255.0
+        print("SANITY (expected ~0..1):")
+        print("  HR  min/max:", float(hr_np.min()), float(hr_np.max()))
+        print("  SR  min/max:", float(sr01.min()), float(sr01.max()))
+        print("  BIC min/max:", float(bic01.min()), float(bic01.max()), flush=True)
 
     # -----------------------------
-    # PSNR / SSIM (Y channel)
+    # PSNR / SSIM (Y channel)  [FIXED RANGE]
     # -----------------------------
     crop = 4
 
-    sr_y = rgb2y(sr)[crop:-crop, crop:-crop]
-    hr_y = rgb2y(hr_np)[crop:-crop, crop:-crop]
-    bic_y = rgb2y(bicubic)[crop:-crop, crop:-crop]
+    sr01 = sr / 255.0
+    bic01 = bicubic / 255.0
+
+    sr_y = rgb2y_01(sr01)[crop:-crop, crop:-crop]
+    hr_y = rgb2y_01(hr_np)[crop:-crop, crop:-crop]
+    bic_y = rgb2y_01(bic01)[crop:-crop, crop:-crop]
 
     psnr = peak_signal_noise_ratio(hr_y, sr_y, data_range=1.0)
     ssim = structural_similarity(hr_y, sr_y, data_range=1.0)

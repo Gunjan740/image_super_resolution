@@ -3,16 +3,22 @@ from pathlib import Path
 from PIL import Image
 import torchvision.transforms.functional as TF
 
-from utils import make_lr   # 🔑 same function used in training
+from utils import make_lr   # same function used in training
 
 
 # -------------------------
 # Config
 # -------------------------
-HR_SRC = Path("~/datasets/DF2K/DF2K_HR").expanduser()
+# use DF2k to train data
+#HR_SRC = Path("~/datasets/DF2K/DF2K_HR").expanduser()
+#HR_OUT = Path("~/datasets/DF2K/DF2K_HR_1024").expanduser()
+#LR_OUT = Path("~/datasets/DF2K/DF2K_LR_x4").expanduser()
 
-HR_OUT = Path("~/datasets/DF2K/DF2K_HR_1024").expanduser()
-LR_OUT = Path("~/datasets/DF2K/DF2K_LR_x4").expanduser()
+
+# test data 
+HR_SRC = Path("~/datasets/DIV2K/DIV2K_valid_HR").expanduser()
+HR_OUT = Path("~/datasets/test_data/DIV2K_valid_HR_1024").expanduser()
+LR_OUT = Path("~/datasets/test_data/DIV2K_valid_LR_x4").expanduser()
 
 HR_SIZE = 1024
 SCALE = 4

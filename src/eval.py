@@ -18,7 +18,7 @@ from dataset_precomputed import SRDatasetPrecomputed
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-CKPT_PATH = "checkpoints/eval_latest.pt"
+CKPT_PATH = "checkpoints/eval_latest_without_prompt.pt"
 OUT_DIR = "results/DIV2K_valid_HR_1024"
 
 os.makedirs(OUT_DIR, exist_ok=True)

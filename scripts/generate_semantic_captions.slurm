@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=generate_texture_captions
+#SBATCH --job-name=generate_semantic_captions
 #SBATCH --partition=gpu_a100_short
 #SBATCH --gres=gpu:1
 #SBATCH --nodes=1

@@ -17,7 +17,7 @@ from dataset_precomputed import SRDatasetPrecomputed
 # --------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-CKPT_PATH = "checkpoints/eval_latest.pt"
+CKPT_PATH = "checkpoints/eval_latest_without_prompt.pt"
 OUT_DIR = "results/DIV2K_valid_HR_1024"
 PROGRESS_FILE = os.path.join(OUT_DIR, "progress.txt")
 
@@ -46,6 +46,8 @@ pipe = StableDiffusionControlNetPipeline.from_pretrained(
     "runwayml/stable-diffusion-v1-5",
     controlnet=controlnet,
 )
+
+pipe.safety_checker = None
 
 pipe.to(device)
 pipe.vae.eval()

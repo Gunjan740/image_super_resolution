@@ -12,7 +12,7 @@ from diffusers import (
 from dotenv import load_dotenv
 from torch.amp import GradScaler, autocast
 
-from dataset import SRDatasetPrecomputed
+from dataset_precomputed import SRDatasetPrecomputed
 
 
 # --------------------------------------------------

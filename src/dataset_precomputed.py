@@ -51,4 +51,4 @@ class SRDatasetPrecomputed(Dataset):
         hr = self.to_tensor(hr)
         lr = self.to_tensor(lr)
 
-        return lr, hr
+        return lr, hr, fname

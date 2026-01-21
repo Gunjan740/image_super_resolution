@@ -35,7 +35,7 @@ pipe = StableDiffusionControlNetPipeline.from_pretrained(
 
 pipe.to(device)
 
-print("✅ Stable Diffusion + ControlNet (Tile) loaded")
+print("Stable Diffusion + ControlNet (Tile) loaded")
 
 # --------------------------------------------------
 # Freeze Stable Diffusion U-Net
@@ -52,7 +52,7 @@ cn_trainable = sum(p.requires_grad for p in pipe.controlnet.parameters())
 print(f"Trainable SD U-Net params: {sd_trainable}")
 print(f"Trainable ControlNet params: {cn_trainable}")
 
-assert sd_trainable == 0, "❌ SD U-Net is not frozen"
-assert cn_trainable > 0, "❌ ControlNet has no trainable parameters"
+assert sd_trainable == 0, "SD U-Net is not frozen"
+assert cn_trainable > 0, "ControlNet has no trainable parameters"
 
-print("✅ MODEL PIPELINE VALIDATION PASSED")
+print("MODEL PIPELINE VALIDATION PASSED")

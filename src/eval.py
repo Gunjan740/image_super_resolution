@@ -18,12 +18,12 @@ from dataset_precomputed import SRDatasetPrecomputed
 # --------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-HR_DIR = os.path.expanduser("~/datasets/test_data/DIV2K_valid_HR_1024")
-LR_DIR = os.path.expanduser("~/datasets/test_data/DIV2K_valid_LR_x4")
+HR_DIR = os.path.expanduser("~/datasets/test_data/Set5_HR_1024")
+LR_DIR = os.path.expanduser("~/datasets/test_data/Set5_LR_x4")
 
 CKPT_PATH = "checkpoints/eval_latest_without_prompt.pt"
 
-OUT_DIR = "results/without_prompt/DIV2K_valid_HR_1024"
+OUT_DIR = "results/without_prompt/Set5_HR_1024"
 os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(f"{OUT_DIR}/grids", exist_ok=True)
 

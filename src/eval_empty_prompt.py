@@ -18,7 +18,7 @@ from dataset_precomputed import SRDatasetPrecomputed
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 CKPT_PATH = "checkpoints/eval_latest_without_prompt.pt"
-OUT_DIR = "results/DIV2K_valid_HR_1024"
+OUT_DIR = "results/without_prompt/Set5_Test_HR_1024"
 PROGRESS_FILE = os.path.join(OUT_DIR, "progress.txt")
 
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -68,8 +68,8 @@ lpips_fn.eval()
 # Dataset
 # --------------------------------------------------
 dataset = SRDatasetPrecomputed(
-    hr_dir="~/datasets/test_data/DIV2K_valid_HR_1024",
-    lr_dir="~/datasets/test_data/DIV2K_valid_LR_x4"
+    hr_dir="~/datasets/test_data/Set5_HR_1024",
+    lr_dir="~/datasets/test_data/Set5_LR_x4"
 )
 
 loader = DataLoader(dataset, batch_size=1, shuffle=False)

@@ -25,17 +25,32 @@ CKPT_PATH = "checkpoints/eval_latest_without_prompt.pt"
 
 OUT_DIR = "results/without_prompt/DIV2K_valid_HR_1024"
 os.makedirs(OUT_DIR, exist_ok=True)
+os.makedirs(f"{OUT_DIR}/grids", exist_ok=True)
+
+PROGRESS_FILE = os.path.join(OUT_DIR, "progress.txt")
+RESULTS_FILE = os.path.join(OUT_DIR, "results.txt")  
 
 START_IDX = 0
-NUM_IMAGES = None   # None = evaluate all
+NUM_IMAGES = None  # None = evaluate all
+
 
 # -------------------------
 # Prompt control
 # -------------------------
-PROMPT_MODE = "none"   # ["none", "lr_semantic", "lr_texture", ...]
+PROMPT_MODE = "none"   # set to "none" for empty prompt
 CAPTIONS_JSONL = os.path.expanduser(
     "~/datasets/DF2K/df2k_LR_x4_semantic_captions.jsonl"
 )
+
+
+# --------------------------------------------------
+# Resume logic
+# --------------------------------------------------
+if os.path.exists(PROGRESS_FILE):
+    with open(PROGRESS_FILE, "r") as f:
+        START_IDX = int(f.read().strip()) + 1
+
+print(f"🔁 Resuming evaluation from index {START_IDX}", flush=True)
 
 
 # --------------------------------------------------
@@ -48,6 +63,35 @@ def load_caption_map(jsonl_path, prefer_key="caption_clean"):
             rec = json.loads(line)
             cap_map[rec["file"]] = rec.get(prefer_key, "")
     return cap_map
+
+
+def tensor_to_img_01(t):
+    t = (t.clamp(-1, 1) + 1) / 2
+    return t.squeeze(0).permute(1, 2, 0).cpu().numpy()
+
+
+def rgb2y_01(img01):
+    return (
+        0.299 * img01[..., 0]
+        + 0.587 * img01[..., 1]
+        + 0.114 * img01[..., 2]
+    )
+
+
+def bicubic_upsample(lr_tensor, size):
+    lr_01 = (lr_tensor + 1) / 2
+    lr_01 = lr_01.squeeze(0).cpu()
+    lr_img = Image.fromarray(
+        (lr_01.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+    )
+    return np.array(lr_img.resize(size, Image.BICUBIC)).astype(np.float32)
+
+
+def img_to_tensor_01(img):
+    if img.max() > 1.0:
+        img = img / 255.0
+    t = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0)
+    return t.to(device).float() * 2 - 1
 
 
 # --------------------------------------------------
@@ -69,10 +113,14 @@ pipe = StableDiffusionControlNetPipeline.from_pretrained(
     "runwayml/stable-diffusion-v1-5",
     controlnet=controlnet,
 )
-pipe.to(device)
-pipe.eval()
 
-# Load trained ControlNet weights
+pipe.safety_checker = None
+pipe.to(device)
+pipe.vae.eval()
+pipe.unet.eval()
+pipe.controlnet.eval()
+pipe.text_encoder.eval()
+
 ckpt = torch.load(CKPT_PATH, map_location=device)
 pipe.controlnet.load_state_dict(ckpt["controlnet"])
 
@@ -97,10 +145,11 @@ loader = DataLoader(
 # Metrics
 # --------------------------------------------------
 lpips_fn = lpips.LPIPS(net="alex").to(device)
+lpips_fn.eval()
 
-psnr_list = []
-ssim_list = []
-lpips_list = []
+psnr_list, ssim_list = [], []
+bic_psnr_list, bic_ssim_list = [], []
+lpips_sr_list, lpips_bic_list = [], []
 
 
 # --------------------------------------------------
@@ -143,47 +192,62 @@ for i, (lr, hr, fname) in enumerate(loader):
             generator=torch.manual_seed(0),
         )
 
-    sr = out.images[0]
-    sr = torch.from_numpy(np.array(sr)).permute(2, 0, 1).float() / 255.0
-    sr = sr.unsqueeze(0).to(device)
+    sr = np.array(out.images[0]).astype(np.float32)
+    hr_np = tensor_to_img_01(hr).astype(np.float32)
+    bicubic = bicubic_upsample(lr, size=(hr.shape[-1], hr.shape[-2]))
 
     # -----------------------------
-    # Metrics
+    # Y-channel + crop
     # -----------------------------
-    hr_np = hr.squeeze(0).permute(1, 2, 0).cpu().numpy()
-    sr_np = sr.squeeze(0).permute(1, 2, 0).cpu().numpy()
+    crop = 4
+    sr01 = sr / 255.0
+    bic01 = bicubic / 255.0
 
-    psnr = peak_signal_noise_ratio(hr_np, sr_np, data_range=1.0)
-    ssim = structural_similarity(hr_np, sr_np, channel_axis=-1, data_range=1.0)
-    lp = lpips_fn(sr, hr).item()
+    sr_y = rgb2y_01(sr01)[crop:-crop, crop:-crop]
+    hr_y = rgb2y_01(hr_np)[crop:-crop, crop:-crop]
+    bic_y = rgb2y_01(bic01)[crop:-crop, crop:-crop]
+
+    psnr = peak_signal_noise_ratio(hr_y, sr_y, data_range=1.0)
+    ssim = structural_similarity(hr_y, sr_y, data_range=1.0)
+    bic_psnr = peak_signal_noise_ratio(hr_y, bic_y, data_range=1.0)
+    bic_ssim = structural_similarity(hr_y, bic_y, data_range=1.0)
+
+    with torch.no_grad():
+        lpips_sr = lpips_fn(img_to_tensor_01(sr), img_to_tensor_01(hr_np)).item()
+        lpips_bic = lpips_fn(img_to_tensor_01(bicubic), img_to_tensor_01(hr_np)).item()
 
     psnr_list.append(psnr)
     ssim_list.append(ssim)
-    lpips_list.append(lp)
+    bic_psnr_list.append(bic_psnr)
+    bic_ssim_list.append(bic_ssim)
+    lpips_sr_list.append(lpips_sr)
+    lpips_bic_list.append(lpips_bic)
 
     # -----------------------------
-    # Save image grid
+    # Save grid
     # -----------------------------
-    grid = vutils.make_grid(
-        torch.cat([lr, sr, hr], dim=0),
+    grid = torch.cat([
+        img_to_tensor_01(bicubic),
+        img_to_tensor_01(sr),
+        img_to_tensor_01(hr_np),
+    ], dim=0)
+
+    vutils.save_image(
+        (grid + 1) / 2,
+        f"{OUT_DIR}/grids/{i:04d}_{fname}_grid.png",
         nrow=3,
-        normalize=True,
-        value_range=(-1, 1),
-    )
-    vutils.save_image(grid, f"{OUT_DIR}/{i:04d}_{fname}")
-
-    print(
-        f"[{i}] PSNR={psnr:.2f} | SSIM={ssim:.4f} | LPIPS={lp:.4f} | file={fname}",
-        flush=True,
     )
 
+    line = (
+        f"[{i}] SR PSNR {psnr:.2f}, SSIM {ssim:.4f}, LPIPS {lpips_sr:.4f} | "
+        f"Bicubic PSNR {bic_psnr:.2f}, SSIM {bic_ssim:.4f}, LPIPS {lpips_bic:.4f}\n"
+    )
 
-# --------------------------------------------------
-# Summary
-# --------------------------------------------------
-print("==================================================")
-print(f"Prompt mode : {PROMPT_MODE}")
-print(f"Mean PSNR   : {np.mean(psnr_list):.2f}")
-print(f"Mean SSIM   : {np.mean(ssim_list):.4f}")
-print(f"Mean LPIPS : {np.mean(lpips_list):.4f}")
-print("==================================================")
+    print(line.strip(), flush=True)
+
+    with open(RESULTS_FILE, "a") as f:
+        f.write(line)
+
+    with open(PROGRESS_FILE, "w") as f:
+        f.write(str(i))
+

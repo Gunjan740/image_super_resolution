@@ -18,12 +18,12 @@ from dataset_precomputed import SRDatasetPrecomputed
 # --------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-HR_DIR = os.path.expanduser("~/datasets/DIV2K/DIV2K_valid_HR")
-LR_DIR = os.path.expanduser("~/datasets/DIV2K/DIV2K_valid_LR_x4")
+HR_DIR = os.path.expanduser("~/datasets/test_data/DIV2K_valid_HR_1024")
+LR_DIR = os.path.expanduser("~/datasets/test_data/DIV2K_valid_LR_x4")
 
-CKPT_PATH = "checkpoints_LR_semantic/latest.pt"
+CKPT_PATH = "checkpoints/eval_latest_without_prompt.pt"
 
-OUT_DIR = "results/eval_LR_semantic"
+OUT_DIR = "results/without_prompt/DIV2K_valid_HR_1024"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 START_IDX = 0
@@ -32,7 +32,7 @@ NUM_IMAGES = None   # None = evaluate all
 # -------------------------
 # Prompt control
 # -------------------------
-PROMPT_MODE = "lr_semantic"   # ["none", "lr_semantic", "lr_texture", ...]
+PROMPT_MODE = "none"   # ["none", "lr_semantic", "lr_texture", ...]
 CAPTIONS_JSONL = os.path.expanduser(
     "~/datasets/DF2K/df2k_LR_x4_semantic_captions.jsonl"
 )

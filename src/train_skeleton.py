@@ -26,20 +26,20 @@ torch.manual_seed(0)
 # --------------------------------------------------
 # Config: checkpoints + prompts
 # --------------------------------------------------
-CKPT_DIR = "checkpoints_LR_semantic"
+CKPT_DIR = "checkpoints_LR_texture"
 os.makedirs(CKPT_DIR, exist_ok=True)
 
 os.makedirs("logs", exist_ok=True)
-loss_log_path = "logs/train_loss_LR_semantic.csv"
+loss_log_path = "logs/train_loss_LR_texture.csv"
 
 save_every = 5000
 max_steps = 50_000_00
 
 latest_ckpt = os.path.join(CKPT_DIR, "latest.pt")
 
-PROMPT_MODE = "lr_semantic"
+PROMPT_MODE = "lr_texture"
 CAPTIONS_JSONL = os.path.expanduser(
-    "~/datasets/DF2K/df2k_LR_x4_semantic_captions.jsonl"
+    "~/datasets/DF2K/df2k_LR_x4_texture_captions.jsonl"
 )
 
 

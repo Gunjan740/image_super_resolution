@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-CHUNK_DIR = Path("~/datasets/DF2K/captions_chunks_LR_x4_semantic").expanduser()
-OUT_FILE = Path("~/datasets/DF2K/df2k_LR_x4_semantic_captions.jsonl").expanduser()
+CHUNK_DIR = Path("~/datasets/DF2K/captions_chunks_LR_x4").expanduser()
+OUT_FILE = Path("~/datasets/DF2K/df2k_LR_x4_texture_captions.jsonl").expanduser()
 
 records = {}
 

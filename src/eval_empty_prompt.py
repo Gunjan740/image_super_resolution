@@ -56,7 +56,7 @@ pipe.controlnet.eval()
 pipe.text_encoder.eval()
 
 ckpt = torch.load(CKPT_PATH, map_location=device)
-pipe.controlnet.load_state_dict(ckpt["controlnet"])
+pipe.controlnet.load_state_dict(ckpt["controlnet"]) # load cuurent controlnet parameters
 
 # --------------------------------------------------
 # LPIPS

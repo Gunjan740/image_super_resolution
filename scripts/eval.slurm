@@ -51,6 +51,6 @@ nvidia-smi
 # -------------------------
 # Run evaluation
 # -------------------------
-python src/eval.py
+python src/eval_empty_prompt.py
 
 echo "Job finished at $(date)"

@@ -109,7 +109,7 @@ psnr_list, ssim_list = [], []
 bic_psnr_list, bic_ssim_list = [], []
 lpips_sr_list, lpips_bic_list = [], []
 
-for i, (lr, hr) in enumerate(loader):
+for i, (lr, hr, _) in enumerate(loader):
 
     if i < start_idx:
         continue

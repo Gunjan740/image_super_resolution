@@ -82,3 +82,4 @@ slurm-*.out
 #checkpoints
 checkpoints/
 checkpoints_LR_semantic/
+checkpoints_LR_texture/

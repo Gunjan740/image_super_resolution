@@ -18,21 +18,21 @@ from dataset_precomputed import SRDatasetPrecomputed
 # --------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-HR_DIR = os.path.expanduser("~/datasets/test_data/DIV2K_valid_HR_1024")
-LR_DIR = os.path.expanduser("~/datasets/test_data/DIV2K_valid_LR_x4")
+HR_DIR = os.path.expanduser("~/datasets/test_data/Set5_HR_512")
+LR_DIR = os.path.expanduser("~/datasets/test_data/Set5_512_LR_x4")
 
-CKPT_PATH = "checkpoints_LR_semantic/eval_latest_semantic.pt"
+CKPT_PATH = "checkpoints/eval_latest_semantic.pt"
 
-OUT_DIR = "results/semantic/DIV2K_valid_HR_1024"
+OUT_DIR = "results/semantic/Set5_HR_512"
 os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(f"{OUT_DIR}/grids", exist_ok=True)
 
 PROGRESS_FILE = os.path.join(OUT_DIR, "progress.txt")
 RESULTS_FILE = os.path.join(OUT_DIR, "results.txt")
 
-PROMPT_MODE = "lr_semantic"  # or "lr_semantic"
+PROMPT_MODE = "lr_semantic"        #"lr_texture"  # or "lr_semantic"
 CAPTIONS_JSONL = os.path.expanduser(
-    "~/datasets/test_data/div2k_valid_LR_x4_semantic_captions.jsonl"
+    "~/datasets/test_data/Set5_512_LR_x4_semantic_captions.jsonl"
 )
 
 
@@ -185,6 +185,12 @@ for i, (lr, hr, fname) in enumerate(loader):
     hr_np = tensor_to_img_01(hr).astype(np.float32)
     bicubic = bicubic_upsample(lr, size=(hr.shape[-1], hr.shape[-2]))
 
+    print(f"Image: {fname}")
+    print("  SR shape:", sr.shape)
+    print("  HR shape:", hr_np.shape)
+    print("  Bicubic shape:", bicubic.shape)
+    
+
     crop = 4
     sr01 = sr / 255.0
     bic01 = bicubic / 255.0
@@ -227,6 +233,7 @@ for i, (lr, hr, fname) in enumerate(loader):
     )
 
     print(line.strip(), flush=True)
+    print("---------------------------------------------------------------")
 
     with open(RESULTS_FILE, "a") as f:
         f.write(line)

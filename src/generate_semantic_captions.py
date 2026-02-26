@@ -13,8 +13,8 @@ from transformers import AutoProcessor, LlavaForConditionalGeneration
 # -----------------------------
 MODEL_ID = "llava-hf/llava-1.5-7b-hf"
 
-IMAGE_DIR = os.path.expanduser("~/datasets/test_data/Set14_HR_1024")
-OUT_DIR = os.path.expanduser("~/datasets/test_data/captions_chunks_Set14_HR_1024_semantic")
+IMAGE_DIR = os.path.expanduser("~/datasets/test_data/Set14_512_LR_x4")
+OUT_DIR = os.path.expanduser("~/datasets/test_data/captions_chunks_Set14_512_LR_x4_semantic")
 
 NUM_CHUNKS = 1  # adjust if needed (higher = smaller chunks)
 

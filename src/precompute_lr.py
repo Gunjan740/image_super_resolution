@@ -10,9 +10,9 @@ from utils import make_lr   # same function used in training
 # Config
 # -------------------------
 # use DF2k to train data
-HR_SRC = Path("~/datasets/DF2K/DF2K_HR").expanduser()
-HR_OUT = Path("~/datasets/DF2K/DF2K_HR_1024").expanduser()
-LR_OUT = Path("~/datasets/DF2K/DF2K_LR_x8").expanduser()
+HR_SRC = Path("~/datasets/DIV2K/DIV2K_valid_HR").expanduser()
+HR_OUT = Path("~/datasets/test_data/DIV2K_valid_HR_512").expanduser()
+LR_OUT = Path("~/datasets/test_data/DIV2K_valid_512_LR_x4").expanduser()
 
 
 # test data 
@@ -20,8 +20,8 @@ LR_OUT = Path("~/datasets/DF2K/DF2K_LR_x8").expanduser()
 #HR_OUT = Path("~/datasets/test_data/Set14_HR_1024").expanduser()
 #LR_OUT = Path("~/datasets/test_data/Set14_LR_x4").expanduser()
 
-HR_SIZE = 1024
-SCALE =8
+HR_SIZE = 512
+SCALE =4
 
 HR_OUT.mkdir(parents=True, exist_ok=True)
 LR_OUT.mkdir(parents=True, exist_ok=True)

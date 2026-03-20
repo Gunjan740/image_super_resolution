@@ -15,7 +15,6 @@ from dataset_precomputed import SRDatasetPrecomputed
 
 # --------------------------------------------------
 # Config
-# --------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 HR_DIR = os.path.expanduser("~/datasets/test_data/Set5_HR_512")
@@ -36,9 +35,7 @@ CAPTIONS_JSONL = os.path.expanduser(
 )
 
 
-# --------------------------------------------------
 # Resume logic
-# --------------------------------------------------
 start_idx = 0
 if os.path.exists(PROGRESS_FILE):
     with open(PROGRESS_FILE, "r") as f:
@@ -47,9 +44,7 @@ if os.path.exists(PROGRESS_FILE):
 print(f"Resuming evaluation from index {start_idx}", flush=True)
 
 
-# --------------------------------------------------
 # Helpers (IDENTICAL)
-# --------------------------------------------------
 def load_caption_map(jsonl_path, prefer_key="caption_clean"):
     cap_map = {}
     with open(jsonl_path, "r", encoding="utf-8") as f:
@@ -88,17 +83,13 @@ def img_to_tensor_01(img):
     return t.to(device).float() * 2 - 1
 
 
-# --------------------------------------------------
 # Captions
-# --------------------------------------------------
 caption_map = {}
 if PROMPT_MODE != "none":
     caption_map = load_caption_map(CAPTIONS_JSONL)
 
 
-# --------------------------------------------------
 # Load model (IDENTICAL)
-# --------------------------------------------------
 controlnet = ControlNetModel.from_pretrained(
     "lllyasviel/control_v11f1e_sd15_tile"
 )
@@ -119,9 +110,7 @@ ckpt = torch.load(CKPT_PATH, map_location=device)
 pipe.controlnet.load_state_dict(ckpt["controlnet"])
 
 
-# --------------------------------------------------
 # Dataset (IDENTICAL)
-# --------------------------------------------------
 dataset = SRDatasetPrecomputed(
     hr_dir=HR_DIR,
     lr_dir=LR_DIR,
@@ -130,9 +119,7 @@ dataset = SRDatasetPrecomputed(
 loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
 
-# --------------------------------------------------
 # Metrics
-# --------------------------------------------------
 lpips_fn = lpips.LPIPS(net="alex").to(device)
 lpips_fn.eval()
 
@@ -141,9 +128,7 @@ bic_psnr_list, bic_ssim_list = [], []
 lpips_sr_list, lpips_bic_list = [], []
 
 
-# --------------------------------------------------
 # Evaluation loop (CORE LOGIC IDENTICAL)
-# --------------------------------------------------
 for i, (lr, hr, fname) in enumerate(loader):
 
     if i < start_idx:
@@ -242,9 +227,7 @@ for i, (lr, hr, fname) in enumerate(loader):
         f.write(str(i))
 
 
-# --------------------------------------------------
 # Write averages
-# --------------------------------------------------
 with open(f"{OUT_DIR}/avg_metrics.txt", "w") as f:
     f.write("=== ControlNet SR ===\n")
     f.write(f"PSNR:  {np.mean(psnr_list):.2f}\n")

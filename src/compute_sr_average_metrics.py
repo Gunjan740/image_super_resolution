@@ -3,9 +3,8 @@ import re
 import pandas as pd
 import numpy as np  
 
-# ==================================================
-# 🔹 CONFIG — only change this
-# ==================================================
+
+# CONFIG — only change this
 base_path = "/home/gunjan/Documents/ULM/semester_5/project Adv visual deep learning 2/results/texture/DIV2K_valid_HR_1024"
 input_filename = "results.txt"
 output_filename = "average_metrics.csv"
@@ -16,9 +15,7 @@ input_file = os.path.join(base_path, input_filename)
 output_file = os.path.join(base_path, output_filename)
 
 
-# ==================================================
 # PARSER
-# ==================================================
 sr_psnr, sr_ssim, sr_lpips = [], [], []
 bi_psnr, bi_ssim, bi_lpips = [], [], []
 
@@ -42,9 +39,7 @@ with open(input_file, "r") as f:
             bi_lpips.append(b_lp)
 
 
-# ==================================================
 # COMPUTE AVERAGES 
-# ==================================================
 df = pd.DataFrame({
     "Method": ["SR", "Bicubic"],
     "PSNR_avg": [np.mean(sr_psnr), np.mean(bi_psnr)],
@@ -53,15 +48,11 @@ df = pd.DataFrame({
 })
 
 
-# ==================================================
 # SAVE
-# ==================================================
 df.to_csv(output_file, index=False)
 
 
-# ==================================================
 # PRINT
-# ==================================================
 print("\n Average Metrics")
 print(df.round(4))  # nicer formatting
 print(f"\nSaved to {output_file}")

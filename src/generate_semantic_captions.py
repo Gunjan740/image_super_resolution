@@ -8,9 +8,7 @@ from PIL import Image
 from transformers import AutoProcessor, LlavaForConditionalGeneration
 
 
-# -----------------------------
 # Config
-# -----------------------------
 MODEL_ID = "llava-hf/llava-1.5-7b-hf"
 
 IMAGE_DIR = os.path.expanduser("~/datasets/test_data/Set14_512_LR_x4")
@@ -22,9 +20,7 @@ MAX_NEW_TOKENS = 80
 SEED = 0
 
 
-# -----------------------------
 # Semantic caption instruction
-# -----------------------------
 INSTRUCTION = (
     "Describe the image in one short, factual sentence.\n"
     "Focus on the main objects and the overall scene.\n"
@@ -32,9 +28,7 @@ INSTRUCTION = (
 )
 
 
-# -----------------------------
 # Chunk management
-# -----------------------------
 def get_next_chunk_id(out_dir: Path) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     existing = {
@@ -48,9 +42,7 @@ def get_next_chunk_id(out_dir: Path) -> int:
     return -1  # all done
 
 
-# -----------------------------
 # Main
-# -----------------------------
 def main():
     torch.manual_seed(SEED)
 

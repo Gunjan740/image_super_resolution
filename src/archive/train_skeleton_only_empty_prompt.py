@@ -13,16 +13,12 @@ from torch.amp import GradScaler, autocast
 from dataset import SRDataset
 
 
-# --------------------------------------------------
 # Setup
-# --------------------------------------------------
 load_dotenv()
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.manual_seed(0)
 
-# --------------------------------------------------
 # Checkpoint & logging setup
-# --------------------------------------------------
 os.makedirs("checkpoints", exist_ok=True)
 os.makedirs("logs", exist_ok=True)
 
@@ -32,9 +28,7 @@ max_steps = 50_000_00
 loss_log_path = "logs/train_loss.csv"
 
 
-# --------------------------------------------------
 # Load ControlNet + Stable Diffusion (FP32 weights)
-# --------------------------------------------------
 controlnet = ControlNetModel.from_pretrained(
     "lllyasviel/control_v11f1e_sd15_tile"
 )
@@ -57,9 +51,7 @@ pipe.unet.eval()
 pipe.controlnet.train()
 
 
-# --------------------------------------------------
 # Dataset & DataLoader
-# --------------------------------------------------
 dataset = SRDataset(
     hr_dir=os.path.expanduser("~/datasets/DF2K/DF2K_HR"),
     scale=4,
@@ -74,18 +66,14 @@ dataloader = DataLoader(
 )
 
 
-# --------------------------------------------------
 # Noise scheduler
-# --------------------------------------------------
 noise_scheduler = DDPMScheduler.from_pretrained(
     "runwayml/stable-diffusion-v1-5",
     subfolder="scheduler",
 )
 
 
-# --------------------------------------------------
 # Optimizer & AMP
-# --------------------------------------------------
 optimizer = torch.optim.AdamW(
     pipe.controlnet.parameters(),
     lr=1e-5,
@@ -94,9 +82,8 @@ optimizer = torch.optim.AdamW(
 scaler = GradScaler("cuda") if device == "cuda" else None
 
 
-# --------------------------------------------------
 # Precompute text embeddings (empty prompt)
-# --------------------------------------------------
+
 with torch.no_grad():
     tokens = pipe.tokenizer(
         [""],
@@ -109,9 +96,7 @@ with torch.no_grad():
     encoder_hidden_states = pipe.text_encoder(input_ids)[0]
 
 
-# --------------------------------------------------
-# 🔁 Resume from checkpoint if available
-# --------------------------------------------------
+# Resume from checkpoint if available
 latest_ckpt = "checkpoints/latest.pt"
 global_step = 0
 
@@ -127,13 +112,11 @@ if os.path.exists(latest_ckpt):
     global_step = ckpt["global_step"]
 
     print(
-        f"✅ Resumed at global step {global_step}",
+        f"Resumed at global step {global_step}",
         flush=True,
     )
 
-# --------------------------------------------------
 # Loss logging (append-safe)
-# --------------------------------------------------
 if not os.path.exists(loss_log_path):
     loss_log = open(loss_log_path, "w")
     loss_log.write("global_step,loss\n")
@@ -141,9 +124,7 @@ else:
     loss_log = open(loss_log_path, "a")
 
 
-# --------------------------------------------------
 # Training loop (step-based, no epochs)
-# --------------------------------------------------
 while global_step < max_steps:
 
     for lr_img, hr_img in dataloader:
@@ -154,16 +135,12 @@ while global_step < max_steps:
         lr_img = lr_img.to(device, non_blocking=True)
         hr_img = hr_img.to(device, non_blocking=True)
 
-        # -----------------------------
         # Encode HR → latent
-        # -----------------------------
         with torch.no_grad():
             latents = pipe.vae.encode(hr_img).latent_dist.sample()
             latents = latents * pipe.vae.config.scaling_factor
 
-        # -----------------------------
         # Noise + timestep
-        # -----------------------------
         noise = torch.randn_like(latents)
         timesteps = torch.randint(
             0,
@@ -174,9 +151,7 @@ while global_step < max_steps:
 
         noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
-        # -----------------------------
         # ControlNet conditioning
-        # -----------------------------
         h_lat, w_lat = noisy_latents.shape[-2:]
         cond = F.interpolate(
             lr_img,
@@ -185,9 +160,7 @@ while global_step < max_steps:
             align_corners=False,
         ).clamp(-1.0, 1.0)
 
-        # -----------------------------
         # Forward + loss
-        # -----------------------------
         ctx = autocast("cuda") if device == "cuda" else torch.no_grad()
 
         with ctx:
@@ -211,12 +184,10 @@ while global_step < max_steps:
             loss = F.mse_loss(model_pred, noise)
 
         if torch.isnan(loss) or torch.isinf(loss):
-            print("❌ NaN/Inf loss detected, skipping step", flush=True)
+            print("NaN/Inf loss detected, skipping step", flush=True)
             continue
 
-        # -----------------------------
         # Backprop
-        # -----------------------------
         optimizer.zero_grad(set_to_none=True)
 
         if device == "cuda":
@@ -227,9 +198,7 @@ while global_step < max_steps:
             loss.backward()
             optimizer.step()
 
-        # -----------------------------
         # Save checkpoints
-        # -----------------------------
         if global_step % save_every == 0 and global_step > 0:
             ckpt = {
                 "global_step": global_step,
@@ -244,9 +213,7 @@ while global_step < max_steps:
                 f"checkpoints/controlnet_step_{global_step}.pt",
             )
 
-        # -----------------------------
         # Log loss
-        # -----------------------------
         loss_log.write(f"{global_step},{loss.item()}\n")
         loss_log.flush()
 
@@ -261,8 +228,6 @@ while global_step < max_steps:
         global_step += 1
 
 
-# --------------------------------------------------
 # Cleanup
-# --------------------------------------------------
 loss_log.close()
-print("✅ Training loop completed")
+print("Training loop completed")

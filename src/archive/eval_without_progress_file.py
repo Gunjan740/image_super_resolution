@@ -12,7 +12,6 @@ from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
 from dataset_precomputed import SRDatasetPrecomputed
 
 
-# --------------------------------------------------
 # Config
 # --------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -25,9 +24,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(f"{OUT_DIR}/images", exist_ok=True)
 os.makedirs(f"{OUT_DIR}/grids", exist_ok=True)
 
-# --------------------------------------------------
 # Load model
-# --------------------------------------------------
 controlnet = ControlNetModel.from_pretrained(
     "lllyasviel/control_v11f1e_sd15_tile"
 )
@@ -46,15 +43,11 @@ pipe.text_encoder.eval()
 ckpt = torch.load(CKPT_PATH, map_location=device)
 pipe.controlnet.load_state_dict(ckpt["controlnet"])
 
-# --------------------------------------------------
 # LPIPS
-# --------------------------------------------------
 lpips_fn = lpips.LPIPS(net="alex").to(device)
 lpips_fn.eval()
 
-# --------------------------------------------------
 # Dataset
-# --------------------------------------------------
 dataset = SRDatasetPrecomputed(
     hr_dir="~/datasets/test_data/DIV2K_valid_HR_1024",
     lr_dir="~/datasets/test_data/DIV2K_valid_LR_x4"
@@ -62,9 +55,7 @@ dataset = SRDatasetPrecomputed(
 
 loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
-# --------------------------------------------------
 # Helpers
-# --------------------------------------------------
 def tensor_to_img_01(t):
     t = (t.clamp(-1, 1) + 1) / 2
     return t.squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -95,9 +86,7 @@ def img_to_tensor_01(img):
     t = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0)
     return t.to(device).float() * 2 - 1  # → [-1,1]
 
-# --------------------------------------------------
 # Evaluation
-# --------------------------------------------------
 psnr_list, ssim_list = [], []
 bic_psnr_list, bic_ssim_list = [], []
 lpips_sr_list, lpips_bic_list = [], []
@@ -138,9 +127,7 @@ for i, (lr, hr) in enumerate(loader):
         print("  SR  min/max:", float(sr01.min()), float(sr01.max()))
         print("  BIC min/max:", float(bic01.min()), float(bic01.max()), flush=True)
 
-    # -----------------------------
     # PSNR / SSIM (Y channel)  [FIXED RANGE]
-    # -----------------------------
     crop = 4
 
     sr01 = sr / 255.0
@@ -161,9 +148,7 @@ for i, (lr, hr) in enumerate(loader):
     bic_psnr_list.append(bic_psnr)
     bic_ssim_list.append(bic_ssim)
 
-    # -----------------------------
     # LPIPS
-    # -----------------------------
     with torch.no_grad():
         sr_t = img_to_tensor_01(sr)
         hr_t = img_to_tensor_01(hr_np)
@@ -175,9 +160,7 @@ for i, (lr, hr) in enumerate(loader):
     lpips_sr_list.append(lpips_sr)
     lpips_bic_list.append(lpips_bic)
 
-    # -----------------------------
     # Save grid: LR | Bicubic | SR | HR
-    # -----------------------------
     lr_up = bicubic_upsample(lr, size=(hr.shape[-1], hr.shape[-2]))
 
     grid = torch.cat([
@@ -199,9 +182,7 @@ for i, (lr, hr) in enumerate(loader):
         f"Bicubic PSNR: {bic_psnr:.2f}, SSIM: {bic_ssim:.4f}, LPIPS: {lpips_bic:.4f}"
     )
 
-# --------------------------------------------------
 # Report
-# --------------------------------------------------
 with open(f"{OUT_DIR}/avg_metrics.txt", "w") as f:
     f.write("=== ControlNet SR ===\n")
     f.write(f"PSNR:  {np.mean(psnr_list):.2f}\n")

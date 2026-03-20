@@ -15,17 +15,13 @@ from torch.amp import GradScaler, autocast
 from dataset_precomputed import SRDatasetPrecomputed
 
 
-# --------------------------------------------------
 # Setup
-# --------------------------------------------------
 load_dotenv()
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.manual_seed(0)
 
 
-# --------------------------------------------------
 # Config: checkpoints + prompts
-# --------------------------------------------------
 CKPT_DIR = "checkpoints_LR_texture"
 os.makedirs(CKPT_DIR, exist_ok=True)
 
@@ -43,9 +39,7 @@ CAPTIONS_JSONL = os.path.expanduser(
 )
 
 
-# --------------------------------------------------
 # Helpers: load captions + embedding cache
-# --------------------------------------------------
 def load_caption_map(jsonl_path: str, prefer_key: str = "caption_clean"):
     cap_map = {}
     if jsonl_path is None:
@@ -83,9 +77,7 @@ def get_text_embedding(prompt: str, pipe, cache: dict, device: str):
     return emb
 
 
-# --------------------------------------------------
 # Load ControlNet + Stable Diffusion
-# --------------------------------------------------
 controlnet = ControlNetModel.from_pretrained(
     "lllyasviel/control_v11f1e_sd15_tile"
 )
@@ -106,9 +98,7 @@ pipe.unet.eval()
 pipe.controlnet.train()
 
 
-# --------------------------------------------------
 # Dataset & DataLoader
-# --------------------------------------------------
 dataset = SRDatasetPrecomputed(
     lr_dir=os.path.expanduser("~/datasets/DF2K/DF2K_LR_x4"),
     hr_dir=os.path.expanduser("~/datasets/DF2K/DF2K_HR_1024"),
@@ -123,18 +113,14 @@ dataloader = DataLoader(
 )
 
 
-# --------------------------------------------------
 # Noise scheduler
-# --------------------------------------------------
 noise_scheduler = DDPMScheduler.from_pretrained(
     "runwayml/stable-diffusion-v1-5",
     subfolder="scheduler",
 )
 
 
-# --------------------------------------------------
 # Optimizer & AMP
-# --------------------------------------------------
 optimizer = torch.optim.AdamW(
     pipe.controlnet.parameters(),
     lr=1e-5,
@@ -143,9 +129,7 @@ optimizer = torch.optim.AdamW(
 scaler = GradScaler("cuda") if device == "cuda" else None
 
 
-# --------------------------------------------------
 # Captions + embedding cache
-# --------------------------------------------------
 caption_map = {}
 if PROMPT_MODE != "none":
     caption_map = load_caption_map(CAPTIONS_JSONL, prefer_key="caption_clean")
@@ -153,9 +137,7 @@ if PROMPT_MODE != "none":
 text_emb_cache = {}
 
 
-# --------------------------------------------------
 # Resume from checkpoint
-# --------------------------------------------------
 global_step = 0
 
 if os.path.exists(latest_ckpt):
@@ -171,9 +153,7 @@ if os.path.exists(latest_ckpt):
     print(f"Resumed at global step {global_step}", flush=True)
 
 
-# --------------------------------------------------
 # Loss logging
-# --------------------------------------------------
 if not os.path.exists(loss_log_path):
     loss_log = open(loss_log_path, "w")
     loss_log.write("global_step,loss\n")
@@ -181,9 +161,7 @@ else:
     loss_log = open(loss_log_path, "a")
 
 
-# --------------------------------------------------
 # Training loop
-# --------------------------------------------------
 while global_step < max_steps:
 
     for batch in dataloader:
@@ -196,9 +174,8 @@ while global_step < max_steps:
         lr_img = lr_img.to(device, non_blocking=True)
         hr_img = hr_img.to(device, non_blocking=True)
 
-        # -----------------------------
+        
         # Text prompt + sanity checks
-        # -----------------------------
         if PROMPT_MODE == "none":
             prompt = ""
         else:
@@ -216,16 +193,12 @@ while global_step < max_steps:
                 prompt, pipe, text_emb_cache, device
             )
 
-        # -----------------------------
         # Encode HR → latent
-        # -----------------------------
         with torch.no_grad():
             latents = pipe.vae.encode(hr_img).latent_dist.sample()
             latents = latents * pipe.vae.config.scaling_factor
 
-        # -----------------------------
         # Noise + timestep
-        # -----------------------------
         noise = torch.randn_like(latents)
         timesteps = torch.randint(
             0,
@@ -236,9 +209,7 @@ while global_step < max_steps:
 
         noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
-        # -----------------------------
         # ControlNet conditioning
-        # -----------------------------
         h_lat, w_lat = noisy_latents.shape[-2:]
         cond = F.interpolate(
             lr_img,
@@ -247,9 +218,7 @@ while global_step < max_steps:
             align_corners=False,
         ).clamp(-1.0, 1.0)
 
-        # -----------------------------
         # Forward + loss
-        # -----------------------------
         ctx = autocast("cuda") if device == "cuda" else torch.no_grad()
         with ctx:
             controlnet_out = pipe.controlnet(
@@ -275,9 +244,7 @@ while global_step < max_steps:
             print("NaN/Inf loss detected, skipping step", flush=True)
             continue
 
-        # -----------------------------
         # Backprop
-        # -----------------------------
         optimizer.zero_grad(set_to_none=True)
 
         if device == "cuda":
@@ -288,9 +255,7 @@ while global_step < max_steps:
             loss.backward()
             optimizer.step()
 
-        # -----------------------------
         # Save checkpoints
-        # -----------------------------
         if global_step % save_every == 0 and global_step > 0:
             ckpt = {
                 "global_step": global_step,
@@ -306,9 +271,7 @@ while global_step < max_steps:
                 os.path.join(CKPT_DIR, f"controlnet_step_{global_step}.pt"),
             )
 
-        # -----------------------------
         # Log loss
-        # -----------------------------
         loss_log.write(f"{global_step},{loss.item()}\n")
         loss_log.flush()
 
@@ -323,8 +286,6 @@ while global_step < max_steps:
         global_step += 1
 
 
-# --------------------------------------------------
 # Cleanup
-# --------------------------------------------------
 loss_log.close()
 print("Training loop completed")

@@ -12,7 +12,7 @@ class SRDataset(Dataset):
         self,
         hr_dir,
         scale=4,
-        hr_size=1024,   # 🔑 FIXED HR SIZE
+        hr_size=1024,   
     ):
         self.hr_dir = hr_dir
         self.scale = scale
@@ -23,7 +23,7 @@ class SRDataset(Dataset):
             if f.lower().endswith((".png", ".jpg", ".jpeg"))
         )
 
-        # 🔑 SD expects [-1, 1]
+        # SD expects [-1, 1]
         self.to_tensor = transforms.Compose([
             transforms.ToTensor(),                 # [0, 1]
             transforms.Normalize([0.5]*3, [0.5]*3) # → [-1, 1]
@@ -37,7 +37,7 @@ class SRDataset(Dataset):
         hr = Image.open(hr_path).convert("RGB")
 
         # --------------------------------------------------
-        # 🔑 FIX 1: deterministic resize (VERY IMPORTANT)
+        # FIX 1: deterministic resize (VERY IMPORTANT)
         # --------------------------------------------------
         hr = TF.resize(
             hr,

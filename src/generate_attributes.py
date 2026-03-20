@@ -7,9 +7,7 @@ import torch
 from PIL import Image
 from transformers import AutoProcessor, LlavaForConditionalGeneration
 
-# -----------------------------
 # Config (EDIT PER RUN)
-# -----------------------------
 MODEL_ID = "llava-hf/llava-1.5-7b-hf"
 
 IMAGE_DIR = os.path.expanduser("~/datasets/DF2K/sample_10_df2klr")
@@ -22,9 +20,7 @@ RESOLUTION = "LR"
 MAX_NEW_TOKENS = 200
 SEED = 0
 
-# -----------------------------
 # Prompt (fixed)
-# -----------------------------
 PROMPT = """USER: <image>
 You are a vision expert for image super-resolution.
 
@@ -112,17 +108,13 @@ def main():
             if "ASSISTANT:" in text:
                 text = text.split("ASSISTANT:", 1)[-1].strip()
 
-            # -----------------------------
             # Sanity: raw model output
-            # -----------------------------
             if idx <= 3:
                 print("----- RAW MODEL OUTPUT -----", flush=True)
                 print(text, flush=True)
                 print("----------------------------", flush=True)
 
-            # -----------------------------
             # Robust JSON extraction
-            # -----------------------------
             match = re.search(r"\{.*\}", text, re.DOTALL)
             if not match:
                 print(f"[WARN] No JSON found -> {img_path.name}", flush=True)
@@ -153,8 +145,8 @@ def main():
                 print(f"Processed {idx}/{len(files)} | written: {written}", flush=True)
 
     print("=" * 60, flush=True)
-    print(f"✅ Finished writing: {out_path}", flush=True)
-    print(f"✅ Total records written: {written}", flush=True)
+    print(f"Finished writing: {out_path}", flush=True)
+    print(f"Total records written: {written}", flush=True)
     print("=" * 60, flush=True)
 
 

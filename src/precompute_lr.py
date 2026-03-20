@@ -6,9 +6,7 @@ import torchvision.transforms.functional as TF
 from utils import make_lr   # same function used in training
 
 
-# -------------------------
 # Config
-# -------------------------
 # use DF2k to train data
 HR_SRC = Path("~/datasets/DIV2K/DIV2K_valid_HR").expanduser()
 HR_OUT = Path("~/datasets/test_data/DIV2K_valid_HR_512").expanduser()
@@ -27,9 +25,7 @@ HR_OUT.mkdir(parents=True, exist_ok=True)
 LR_OUT.mkdir(parents=True, exist_ok=True)
 
 
-# -------------------------
 # Processing
-# -------------------------
 files = sorted(
     f for f in HR_SRC.iterdir()
     if f.suffix.lower() in [".png", ".jpg", ".jpeg"]

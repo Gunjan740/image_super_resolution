@@ -4,6 +4,18 @@ A ControlNet-based image super-resolution pipeline using Stable Diffusion v1.5 w
 
 ---
 
+## Setup
+
+```bash
+conda create -n sr python=3.10 -y
+conda activate sr
+pip install -r requirements.txt
+```
+
+> Requires CUDA-capable GPU for training and evaluation. Caption generation (LLaVA) also requires a GPU.
+
+---
+
 ## Project Structure
 
 ```

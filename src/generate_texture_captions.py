@@ -9,9 +9,7 @@ from PIL import Image
 from transformers import AutoProcessor, LlavaForConditionalGeneration
 
 
-# -----------------------------
 # Config
-# -----------------------------
 MODEL_ID = "llava-hf/llava-1.5-7b-hf"
 IMAGE_DIR = os.path.expanduser("~/datasets/test_data/Set5_512_LR_x4")
 OUT_DIR = os.path.expanduser("~/datasets/test_data/captions_texture_Set5_512_LR_x4")
@@ -34,9 +32,7 @@ INSTRUCTION = (
     "Return ONE short sentence.\n"
 )
 
-# -----------------------------
 # Semantic leakage detection
-# -----------------------------
 SEMANTIC_RE = re.compile(
     r"\b("
     r"road|street|building|house|car|train|tree|plant|grass|sky|water|pool|"
@@ -48,9 +44,7 @@ SEMANTIC_RE = re.compile(
 )
 
 
-# -----------------------------
 # Attribute helpers
-# -----------------------------
 def needs_rewrite(text: str) -> bool:
     return SEMANTIC_RE.search(text) is not None
 
@@ -100,9 +94,7 @@ def extract_attributes(text: str) -> List[str]:
     return attrs
 
 
-# -----------------------------
 # Chunk management
-# -----------------------------
 def get_next_chunk_id(out_dir: Path) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     existing = {
@@ -116,9 +108,7 @@ def get_next_chunk_id(out_dir: Path) -> int:
     return -1  # all done
 
 
-# -----------------------------
 # Main
-# -----------------------------
 def main():
     torch.manual_seed(SEED)
 
@@ -135,7 +125,7 @@ def main():
 
     chunk_id = get_next_chunk_id(out_dir)
     if chunk_id == -1:
-        print("✅ All chunks already processed.")
+        print("All chunks already processed.")
         return
 
     out_path = out_dir / f"captions_chunk_{chunk_id}.jsonl"
@@ -196,7 +186,7 @@ def main():
 
             fout.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    print(f"✅ Finished chunk {chunk_id}")
+    print(f"Finished chunk {chunk_id}")
 
 
 if __name__ == "__main__":

@@ -235,5 +235,3 @@ Evaluation is resumable — if the job is interrupted, resubmit and it will cont
 | `avg_metrics.txt` | Dataset-level averages |
 | `grids/` | Side-by-side images: `[bicubic \| SR \| HR]` |
 | `progress.txt` | Last completed index (allows resumable evaluation) |
-
-Inference uses 40 DDPM steps with a fixed seed (0) for reproducibility.

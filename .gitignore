@@ -44,6 +44,7 @@ models/*
 # ------------------
 results/*
 !results/.gitkeep
+results_512/*
 
 logs/*
 !logs/.gitkeep

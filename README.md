@@ -39,6 +39,12 @@ src/
 
 Training uses the **DF2K** dataset (DIV2K + Flickr2K combined). Evaluation uses standard SR benchmarks such as **Set5**, **Set14**, and **DIV2K validation**.
 
+All the HR images were taken from these places:
+**DIV2K Train and Validation**: https://data.vision.ee.ethz.ch/cvl/DIV2K/ 
+**Flickr2K**: https://huggingface.co/datasets/yangtao9009/Flickr2K/tree/main
+**Set5**: https://huggingface.co/datasets/eugenesiow/Set5/tree/main
+**Set14**: https://huggingface.co/datasets/eugenesiow/Set14/tree/main
+
 Expected directory layout:
 
 ```
